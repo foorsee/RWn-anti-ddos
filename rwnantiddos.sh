@@ -1,10 +1,9 @@
 #!/bin/bash
 
 # ==============================================================================
-# Remnanode Interactive Protection & Tuning Script (Menu Edition)
+# Remnanode Interactive Protection & Tuning Script (Menu Edition v4)
 # ==============================================================================
 
-# Цветовая палитра
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -13,24 +12,96 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 LOG_FILE="/tmp/remnanode_install.log"
-USER_IP=$(curl -s ifconfig.me)
 
-# Массивы стран
-COUNTRY_CODES=("CN" "IN" "BR" "PK" "VN" "TW" "BD" "ID" "IR" "ZA" "MX" "EC")
-COUNTRY_RU=("Китай" "Индия" "Бразилия" "Пакистан" "Вьетнам" "Тайвань" "Бангладеш" "Индонезия" "Иран" "Южная Африка" "Мексика" "Эквадор")
-
+# ЖЕСТКАЯ ПРОВЕРКА НА ROOT / SUDO
 if [ "$EUID" -ne 0 ]; then
-  echo -e "${RED}Запустите скрипт через sudo!${NC}"
+  echo -e "${RED}ОШИБКА: Запустите скрипт через sudo! / Please run as root!${NC}"
   exit 1
 fi
 
+USER_IP=$(curl -s ifconfig.me)
+USER_ASN=$(curl -s ipinfo.io/org)
+if [ -z "$USER_ASN" ]; then USER_ASN="Unknown ASN"; fi
+
+# Массивы стран
+COUNTRY_CODES=("CN" "IN" "BR" "PK" "VN" "TW" "BD" "ID" "IR" "ZA" "MX" "EC")
+COUNTRY_EN=("China" "India" "Brazil" "Pakistan" "Vietnam" "Taiwan" "Bangladesh" "Indonesia" "Iran" "South Africa" "Mexico" "Ecuador")
+COUNTRY_RU=("Китай" "Индия" "Бразилия" "Пакистан" "Вьетнам" "Тайвань" "Бангладеш" "Индонезия" "Иран" "Южная Африка" "Мексика" "Эквадор")
+
+# ==================== ВЫБОР ЯЗЫКА ====================
+clear
+echo -e "${BLUE}${BOLD}====================================================${NC}"
+echo -e "1) English"
+echo -e "2) Русский"
+echo -n -e "${YELLOW}Select language / Выберите язык [1/2]: ${NC}"
+read LANG_CHOICE
+
+if [[ "$LANG_CHOICE" == "2" ]]; then
+    M_TITLE="МЕНЮ НАСТРОЙКИ ЗАЩИТЫ REMNANODE"
+    M_IP="Ваш IP:"
+    M_ASN="Провайдер:"
+    M_OPT_1="1. Настроить сетевой экран (UFW)"
+    M_OPT_2="2. Установить защиту от сканеров (Traffic-Guard)"
+    M_OPT_3="3. Установить CrowdSec (Защита от брутфорса)"
+    M_OPT_4="4. Настроить Гео-блокировку DDoS"
+    M_OPT_5="5. Оптимизация сети (Отключить IPv6, BBR+CAKE)"
+    M_OPT_6="6. Запустить Speedtest"
+    M_OPT_7="7. Проверить геобазы (IP Region)"
+    M_OPT_0="0. Выход"
+    M_CHOOSE="Выберите действие"
+    
+    P_SSH="Введите ваш текущий SSH порт (например, 22): "
+    P_VPN="Введите порт вашего VPN/VLESS: "
+    P_TG_SSH="ВАЖНО: Введите ваш SSH порт, чтобы Traffic-Guard не заблокировал вас: "
+    P_GEO_INFO="Введите номера стран через пробел (например: 1 3 5) или 'all': "
+    P_GEO_SKIP="Страны не выбраны, пропускаем."
+    
+    S_SPIN="Выполнение задачи"
+    S_ERR="[ОШИБКА] Процесс завершился с кодом"
+    S_LOG="Вывод последних 50 строк лога"
+    S_OK="[УСПЕШНО] Операция выполнена!"
+    S_ENTER="Нажмите Enter для продолжения..."
+    S_SPEED="Результаты Speedtest"
+    S_GEO_CHECK="Проверка по геобазам"
+else
+    M_TITLE="REMNANODE SECURITY SETUP MENU"
+    M_IP="Your IP:"
+    M_ASN="ASN:"
+    M_OPT_1="1. Setup Firewall (UFW)"
+    M_OPT_2="2. Install Anti-scanner (Traffic-Guard)"
+    M_OPT_3="3. Install CrowdSec (Brute-force protection)"
+    M_OPT_4="4. Setup Geo-blocking for DDoS"
+    M_OPT_5="5. Network Tuning (Disable IPv6, BBR+CAKE)"
+    M_OPT_6="6. Run Speedtest"
+    M_OPT_7="7. Check Geo-databases (IP Region)"
+    M_OPT_0="0. Exit"
+    M_CHOOSE="Select an option"
+    
+    P_SSH="Enter your current SSH port (e.g., 22): "
+    P_VPN="Enter your VPN/VLESS port: "
+    P_TG_SSH="CRITICAL: Enter your SSH port so Traffic-Guard doesn't lock you out: "
+    P_GEO_INFO="Enter country numbers separated by space (e.g., 1 3 5) or 'all': "
+    P_GEO_SKIP="No countries selected, skipping."
+    
+    S_SPIN="Executing task"
+    S_ERR="[ERROR] Process failed with exit code"
+    S_LOG="Last 50 lines of the log"
+    S_OK="[SUCCESS] Operation completed!"
+    S_ENTER="Press Enter to continue..."
+    S_SPEED="Speedtest Results"
+    S_GEO_CHECK="Geo-database Check"
+fi
+
+# Предварительная установка
+apt update -q >/dev/null 2>&1
+apt install -yq ufw curl wget ipset iptables speedtest-cli >/dev/null 2>&1
+
 # ==========================================
-# Анимация Звезды Давида
+# Анимация Звезды
 # ==========================================
 spin_david_star() {
     local pid=$1
     local delay=0.15
-    
     tput civis
     echo -e "\n\n\n\n\n\n\n"
     
@@ -42,7 +113,7 @@ spin_david_star() {
         echo -e "${BLUE}    /_ |  _\\    ${NC}"
         echo -e "${BLUE}      \\  /      ${NC}"
         echo -e "${BLUE}       \\/       ${NC}"
-        echo -e "${YELLOW} Выполнение задачи...   ${NC}"
+        echo -e "${YELLOW} ${S_SPIN}...   ${NC}"
         sleep $delay
         
         tput cuu 7
@@ -52,7 +123,7 @@ spin_david_star() {
         echo -e "${BLUE}    /_ /  _\\    ${NC}"
         echo -e "${BLUE}      \\  /      ${NC}"
         echo -e "${BLUE}       \\/       ${NC}"
-        echo -e "${YELLOW} Выполнение задачи..    ${NC}"
+        echo -e "${YELLOW} ${S_SPIN}..    ${NC}"
         sleep $delay
         
         tput cuu 7
@@ -62,7 +133,7 @@ spin_david_star() {
         echo -e "${BLUE}    /_   _\\     ${NC}"
         echo -e "${BLUE}      \\  /      ${NC}"
         echo -e "${BLUE}       \\/       ${NC}"
-        echo -e "${YELLOW} Выполнение задачи.     ${NC}"
+        echo -e "${YELLOW} ${S_SPIN}.     ${NC}"
         sleep $delay
         
         tput cuu 7
@@ -72,20 +143,14 @@ spin_david_star() {
         echo -e "${BLUE}    /_  \\ _\\    ${NC}"
         echo -e "${BLUE}      \\  /      ${NC}"
         echo -e "${BLUE}       \\/       ${NC}"
-        echo -e "${YELLOW} Выполнение задачи      ${NC}"
+        echo -e "${YELLOW} ${S_SPIN}      ${NC}"
         sleep $delay
     done
-    
     tput cnorm
 }
 
-# ==========================================
-# Логика запуска в фоне + проверка ошибок
-# ==========================================
 run_with_loader() {
     local cmd="$1"
-    
-    # Очищаем старый лог
     > "$LOG_FILE"
     
     eval "$cmd" > "$LOG_FILE" 2>&1 &
@@ -96,21 +161,21 @@ run_with_loader() {
     local exit_status=$?
     
     if [ $exit_status -ne 0 ]; then
-        echo -e "\n${RED}[ОШИБКА] Процесс завершился с кодом: $exit_status${NC}"
-        echo -e "${YELLOW}--- Вывод последних 50 строк лога ---${NC}"
+        echo -e "\n${RED}${S_ERR}: $exit_status${NC}"
+        echo -e "${YELLOW}--- ${S_LOG} ---${NC}"
         tail -n 50 "$LOG_FILE"
         echo -e "${YELLOW}-------------------------------------${NC}"
-        read -p "Нажмите Enter для продолжения..."
+        read -p "${S_ENTER}"
         return 1
     else
-        echo -e "\n${GREEN}[УСПЕШНО] Операция выполнена!${NC}"
+        echo -e "\n${GREEN}${S_OK}${NC}"
         sleep 1
         return 0
     fi
 }
 
 # ==========================================
-# Рабочие функции для сайлент-мода
+# Рабочие функции
 # ==========================================
 setup_ufw() {
     ufw --force reset
@@ -123,27 +188,25 @@ setup_ufw() {
     ufw --force enable
 }
 
-setup_network() {
-    sed -i '/disable_ipv6/d' /etc/sysctl.conf
-    sed -i '/default_qdisc/d' /etc/sysctl.conf
-    sed -i '/tcp_congestion_control/d' /etc/sysctl.conf
-
-    cat >> /etc/sysctl.conf << EOF
-net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.lo.disable_ipv6 = 1
-net.core.default_qdisc = cake
-net.ipv4.tcp_congestion_control = bbr
-EOF
-    sysctl -p
+setup_traffic_guard() {
+    local ssh_port=$1
+    iptables -I INPUT -p tcp --dport $ssh_port -j ACCEPT
+    ufw allow $ssh_port/tcp comment 'TG Safe SSH' 2>/dev/null
+    
+    curl -fsSL https://raw.githubusercontent.com/dotX12/traffic-guard/master/install.sh | bash
+    
+    # Новая команда Traffic-Guard с двумя листами и логированием
+    traffic-guard full \
+      -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list \
+      -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list \
+      --enable-logging
 }
 
-setup_traffic_guard() {
-    curl -fsSL https://raw.githubusercontent.com/dotX12/traffic-guard/master/install.sh | bash
-    sudo traffic-guard full \
-  -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list \
-  -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list \
-  --enable-logging
+setup_crowdsec() {
+    curl -s https://install.crowdsec.net | bash
+    apt-get install -yq crowdsec crowdsec-firewall-bouncer-iptables
+    systemctl enable crowdsec
+    systemctl start crowdsec
 }
 
 setup_geoblock() {
@@ -165,10 +228,20 @@ setup_geoblock() {
     iptables -I INPUT -m set --match-set geo_block src -j DROP
 }
 
-# Предварительная установка базовых пакетов
-echo -e "${YELLOW}Установка базовых зависимостей...${NC}"
-apt update -q >/dev/null 2>&1
-apt install -yq ufw curl ipset iptables speedtest-cli >/dev/null 2>&1
+setup_network() {
+    sed -i '/disable_ipv6/d' /etc/sysctl.conf
+    sed -i '/default_qdisc/d' /etc/sysctl.conf
+    sed -i '/tcp_congestion_control/d' /etc/sysctl.conf
+
+    cat >> /etc/sysctl.conf << EOF
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+net.core.default_qdisc = cake
+net.ipv4.tcp_congestion_control = bbr
+EOF
+    sysctl -p
+}
 
 # ==========================================
 # Главное меню
@@ -176,39 +249,50 @@ apt install -yq ufw curl ipset iptables speedtest-cli >/dev/null 2>&1
 while true; do
     clear
     echo -e "${BLUE}${BOLD}====================================================${NC}"
-    echo -e "${BLUE}${BOLD}   Remnanode Security & Network Setup               ${NC}"
-    echo -e "${BLUE}${BOLD}   Ваш IP: ${USER_IP}                               ${NC}"
+    echo -e "${BLUE}${BOLD}   ${M_TITLE}                                 ${NC}"
+    echo -e "${BLUE}${BOLD}   ${M_IP} ${USER_IP}                               ${NC}"
+    echo -e "${BLUE}${BOLD}   ${M_ASN} ${USER_ASN}                              ${NC}"
     echo -e "${BLUE}${BOLD}====================================================${NC}"
-    echo "1. Настроить сетевой экран (UFW)"
-    echo "2. Оптимизация сети (Отключить IPv6, включить BBR+CAKE)"
-    echo "3. Установить защиту от сканеров (Traffic-Guard)"
-    echo "4. Настроить Гео-блокировку DDoS"
-    echo "5. Запустить Speedtest"
-    echo "0. Выход"
+    echo "$M_OPT_1"
+    echo "$M_OPT_2"
+    echo "$M_OPT_3"
+    echo "$M_OPT_4"
+    echo "$M_OPT_5"
+    echo "$M_OPT_6"
+    echo "$M_OPT_7"
+    echo "$M_OPT_0"
     echo -e "${BLUE}${BOLD}====================================================${NC}"
-    read -p "Выберите действие [0-5]: " choice
+    read -p "${M_CHOOSE} [0-7]: " choice
     
     case $choice in
         1)
-            echo -n -e "${YELLOW}Введите ваш текущий SSH порт: ${NC}"
+            echo -n -e "${YELLOW}${P_SSH}${NC}"
             read SSH_PORT
-            echo -n -e "${YELLOW}Введите порт вашего VPN/VLESS: ${NC}"
+            echo -n -e "${YELLOW}${P_VPN}${NC}"
             read VPN_PORT
             run_with_loader "setup_ufw $SSH_PORT $VPN_PORT"
             ;;
         2)
-            run_with_loader "setup_network"
+            echo -n -e "${RED}${BOLD}${P_TG_SSH}${NC}"
+            read TG_SSH_PORT
+            if [ -z "$TG_SSH_PORT" ]; then TG_SSH_PORT=22; fi
+            run_with_loader "setup_traffic_guard $TG_SSH_PORT"
             ;;
         3)
-            run_with_loader "setup_traffic_guard"
+            run_with_loader "setup_crowdsec"
             ;;
         4)
-            echo -e "\n${BOLD}Доступные страны для блокировки:${NC}"
+            echo -e "\n${BOLD}Available countries / Доступные страны:${NC}"
             for i in "${!COUNTRY_CODES[@]}"; do
                 num=$((i+1))
-                echo -e "  ${BOLD}${num})${NC} ${COUNTRY_CODES[$i]} - ${COUNTRY_RU[$i]}"
+                if [[ "$LANG_CHOICE" == "2" ]]; then
+                    echo -e "  ${BOLD}${num})${NC} ${COUNTRY_CODES[$i]} - ${COUNTRY_RU[$i]}"
+                else
+                    echo -e "  ${BOLD}${num})${NC} ${COUNTRY_CODES[$i]} - ${COUNTRY_EN[$i]}"
+                fi
             done
-            echo -e "${YELLOW}Введите номера через пробел (например: 1 3 5) или 'all':${NC}"
+            
+            echo -e "${YELLOW}${P_GEO_INFO}${NC}"
             read GEO_CHOICE
 
             SELECTED_CODES=()
@@ -224,29 +308,34 @@ while true; do
             fi
 
             if [ ${#SELECTED_CODES[@]} -gt 0 ]; then
-                # Передаем IP и массив стран в функцию
                 run_with_loader "setup_geoblock $USER_IP ${SELECTED_CODES[*]}"
             else
-                echo -e "${RED}Страны не выбраны, пропускаем.${NC}"
+                echo -e "${RED}${P_GEO_SKIP}${NC}"
                 sleep 1
             fi
             ;;
         5)
-            # Для спидтеста мы запускаем его через лоадер, а потом выводим результат
+            run_with_loader "setup_network"
+            ;;
+        6)
             run_with_loader "speedtest-cli --simple"
             if [ $? -eq 0 ]; then
-                echo -e "\n${BLUE}--- Результаты Speedtest ---${NC}"
+                echo -e "\n${BLUE}--- ${S_SPEED} ---${NC}"
                 cat "$LOG_FILE"
                 echo -e "${BLUE}----------------------------${NC}"
-                read -p "Нажмите Enter для продолжения..."
+                read -p "${S_ENTER}"
             fi
             ;;
+        7)
+            echo -e "\n${BLUE}--- ${S_GEO_CHECK} ---${NC}"
+            bash <(wget -qO- https://ipregion.vrnt.xyz)
+            echo -e "${BLUE}----------------------------${NC}"
+            read -p "${S_ENTER}"
+            ;;
         0)
-            echo -e "${GREEN}Выход...${NC}"
             exit 0
             ;;
         *)
-            echo -e "${RED}Неверный пункт меню!${NC}"
             sleep 1
             ;;
     esac
