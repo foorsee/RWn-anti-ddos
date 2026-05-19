@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# Remnanode Interactive Protection & Tuning Script (Menu Edition v6)
+# Remnanode Interactive Protection & Tuning Script (Menu Edition v8 - Anti-Conflict)
 # ==============================================================================
 
 RED='\033[0;31m'
@@ -39,14 +39,17 @@ if [[ "$LANG_CHOICE" == "2" ]]; then
     M_TITLE="МЕНЮ НАСТРОЙКИ ЗАЩИТЫ REMNANODE"
     M_IP="Ваш IP:"
     M_ASN="Провайдер:"
-    M_OPT_1="1. Настроить сетевой экран (UFW + Авто-Домен + Блок 25)"
-    M_OPT_2="2. Установить защиту от сканеров (Traffic-Guard)"
-    M_OPT_3="3. Установить CrowdSec (Сетевая защита)"
-    M_OPT_4="4. Настроить Гео-блокировку DDoS"
-    M_OPT_5="5. Оптимизация сети (Отключить IPv6, BBR+CAKE)"
-    M_OPT_6="6. Запустить Speedtest"
-    M_OPT_7="7. Проверить геобазы (IP Region)"
-    M_OPT_8="8. Установить Fail2Ban (Защита SSH)"
+    
+    # Меню выстроено по строгой иерархии зависимостей
+    M_OPT_1="1. [ШАГ 1] Продвинутый тюнинг (Ядро XanMod, BBRv3, Nftables) [⚠️ РЕБУТ]"
+    M_OPT_2="2. [ШАГ 1.АЛЬТЕРНАТИВА] Базовый тюнинг сети (Без смены ядра: IPv6 OFF, BBR+CAKE)"
+    M_OPT_3="3. [ШАГ 2] Настроить сетевой экран (UFW + Авто-Домен + Блок 25)"
+    M_OPT_4="4. [ШАГ 3] Установить защиту от сканеров (Traffic-Guard)"
+    M_OPT_5="5. [ШАГ 4] Настроить Гео-блокировку DDoS (ipset)"
+    M_OPT_6="6. [ШАГ 5] Установить Fail2Ban (Защита SSH через UFW)"
+    M_OPT_7="7. [ШАГ 6] Установить CrowdSec (Сетевой IPS)"
+    M_OPT_8="8. [ДИАГНОСТИКА] Запустить Speedtest"
+    M_OPT_9="9. [ДИАГНОСТИКА] Проверить геобазы (IP Region)"
     M_OPT_0="0. Выход"
     M_CHOOSE="Выберите действие"
     
@@ -56,6 +59,10 @@ if [[ "$LANG_CHOICE" == "2" ]]; then
     P_TG_SSH="ВАЖНО: Введите ваш SSH порт, чтобы Traffic-Guard не заблокировал вас: "
     P_GEO_INFO="Введите номера стран через пробел (например: 1 3 5) или 'all': "
     P_GEO_SKIP="Страны не выбраны, пропускаем."
+    
+    W_XAN_TITLE="⚠️ ВНИМАНИЕ / WARNING ⚠️"
+    W_XAN_TEXT="Эта операция заменит стандартное ядро Linux на кастомное ядро XanMod (с поддержкой BBRv3), перенастроит sysctl и развернет правила nftables (MSS Clamping).\nВАЖНО: Выполнение этого шага сбросит (flush) текущие правила файрвола, поэтому его делают ПЕРВЫМ.\n\nВы уверены, что хотите продолжить? [y/n]: "
+    W_XAN_REBOOT="⚠️ Скрипт отработал. Для активации нового ядра XanMod и BBRv3 ОБЯЗАТЕЛЬНО перезагрузите сервер командой: sudo reboot"
     
     S_SPIN="Выполнение задачи"
     S_ERR="[ОШИБКА] Процесс завершился с кодом"
@@ -68,14 +75,16 @@ else
     M_TITLE="REMNANODE SECURITY SETUP MENU"
     M_IP="Your IP:"
     M_ASN="ASN:"
-    M_OPT_1="1. Setup Firewall (UFW + Auto-Domain + Block 25)"
-    M_OPT_2="2. Install Anti-scanner (Traffic-Guard)"
-    M_OPT_3="3. Install CrowdSec (Network protection)"
-    M_OPT_4="4. Setup Geo-blocking for DDoS"
-    M_OPT_5="5. Network Tuning (Disable IPv6, BBR+CAKE)"
-    M_OPT_6="6. Run Speedtest"
-    M_OPT_7="7. Check Geo-databases (IP Region)"
-    M_OPT_8="8. Install Fail2Ban (SSH protection)"
+    
+    M_OPT_1="1. [STEP 1] Advanced Tuning (XanMod Kernel, BBRv3, Nftables) [⚠️ REBOOT]"
+    M_OPT_2="2. [STEP 1.ALT] Basic Network Tuning (No kernel change: IPv6 OFF, BBR+CAKE)"
+    M_OPT_3="3. [STEP 2] Setup Firewall (UFW + Auto-Domain + Block 25)"
+    M_OPT_4="4. [STEP 3] Install Anti-scanner (Traffic-Guard)"
+    M_OPT_5="5. [STEP 4] Setup Geo-blocking for DDoS (ipset)"
+    M_OPT_6="6. [STEP 5] Install Fail2Ban (SSH Protection via UFW)"
+    M_OPT_7="7. [STEP 6] Install CrowdSec (Network IPS)"
+    M_OPT_8="8. [DIAGNOSTICS] Run Speedtest"
+    M_OPT_9="9. [DIAGNOSTICS] Check Geo-databases (IP Region)"
     M_OPT_0="0. Exit"
     M_CHOOSE="Select an option"
     
@@ -86,6 +95,10 @@ else
     P_GEO_INFO="Enter country numbers separated by space (e.g., 1 3 5) or 'all': "
     P_GEO_SKIP="No countries selected, skipping."
     
+    W_XAN_TITLE="⚠️ WARNING / ВНИМАНИЕ ⚠️"
+    W_XAN_TEXT="This operation will replace your stock Linux kernel with custom XanMod kernel (enabling BBRv3), tune sysctl, and deploy nftables (MSS Clamping).\nCRITICAL: Running this step will FLUSH current firewall rules, which is why it must be executed FIRST.\n\nAre you sure you want to proceed? [y/n]: "
+    W_XAN_REBOOT="⚠️ Task finished. To activate the new XanMod kernel and BBRv3, you MUST reboot the server using: sudo reboot"
+    
     S_SPIN="Executing task"
     S_ERR="[ERROR] Process failed with exit code"
     S_LOG="Last 50 lines of the log"
@@ -95,12 +108,12 @@ else
     S_GEO_CHECK="Geo-database Check"
 fi
 
-# Предварительная установка
+# Предварительная установка базовых утилит
 apt update -q >/dev/null 2>&1
 apt install -yq ufw curl wget ipset iptables speedtest-cli cron >/dev/null 2>&1
 
 # ==========================================
-# Анимация Звезды
+# Анимация Звезды Давида
 # ==========================================
 spin_david_star() {
     local pid=$1
@@ -178,8 +191,82 @@ run_with_loader() {
 }
 
 # ==========================================
-# Рабочие функции
+# Рабочие функции (Бизнес-логика)
 # ==========================================
+setup_xanmod_bbr3() {
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y wget gpg ca-certificates lsb-release
+    wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
+    echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://dl.xanmod.org/repository debian main' | tee /etc/apt/sources.list.distrib.d/xanmod.list
+    apt-get update
+    apt-get install -yq linux-image-xanmod-edge linux-headers-xanmod-edge
+
+    local sysctl_conf="/etc/sysctl.d/99-network-optimization.conf"
+    cat << 'EOF' > $sysctl_conf
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+net.ipv4.tcp_fastopen = 3
+net.netfilter.nf_conntrack_max = 2000000
+net.netfilter.nf_conntrack_tcp_timeout_established = 7200
+net.netfilter.nf_conntrack_tcp_timeout_time_wait = 60
+net.netfilter.nf_conntrack_tcp_timeout_close_wait = 30
+net.netfilter.nf_conntrack_tcp_timeout_fin_wait = 30
+EOF
+    modprobe nf_conntrack
+    sysctl --system
+
+    apt-get install -y nftables
+    systemctl enable nftables
+
+    local interface=$(ip route show default | awk '/default/ {print $5}' | head -n1)
+    if [ -z "$interface" ]; then interface="eth0"; fi
+
+    local nft_conf="/etc/nftables.conf"
+    cat << EOF > $nft_conf
+#!/usr/sbin/nft -f
+flush ruleset
+table inet filter {
+    counter tier_high { comment "VIP Traffic" }
+    counter tier_normal { comment "Standard Traffic" }
+    chain input {
+        type filter hook input priority filter; policy accept;
+        tcp dport { 22, 80, 443 } ct timeout set "filter/tcp_established_high" counter name tier_high
+        counter name tier_normal
+    }
+    chain forward {
+        type filter hook forward priority filter; policy accept;
+        oifname "$interface" tcp flags syn tcp option maxseg size set rt mtu
+    }
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}
+table inet timeout_policy {
+    ct timeout tcp_established_high {
+        protocol tcp;
+        l4proto tcp;
+        state established = 14400;
+    }
+}
+EOF
+    systemctl restart nftables
+}
+
+setup_network() {
+    sed -i '/disable_ipv6/d' /etc/sysctl.conf
+    sed -i '/default_qdisc/d' /etc/sysctl.conf
+    sed -i '/tcp_congestion_control/d' /etc/sysctl.conf
+
+    cat >> /etc/sysctl.conf << EOF
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+net.core.default_qdisc = cake
+net.ipv4.tcp_congestion_control = bbr
+EOF
+    sysctl -p
+}
+
 setup_ufw() {
     local ssh_port=$1
     local vpn_port=$2
@@ -189,22 +276,16 @@ setup_ufw() {
     ufw default deny incoming
     ufw default allow outgoing
 
-    # Базовые порты
     ufw allow $ssh_port/tcp comment 'SSH'
     ufw allow 80/tcp comment 'HTTP'
     ufw allow 443/tcp comment 'HTTPS'
     ufw allow $vpn_port comment 'VPN/Xray'
 
-# Разрешение для панели (IP или Домен)
     if [ -n "$panel_input" ]; then
-        # Проверка, является ли ввод чистым IPv4 адресом
         if [[ $panel_input =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             ufw allow from "$panel_input" to any port $vpn_port proto tcp comment 'Panel_IP'
         else
-            # Ставим dnsutils если вдруг нет, чтобы dig/nslookup работали железно
             apt-get install -yq dnsutils >/dev/null 2>&1
-            
-            # Жесткий резолв строго IPv4 через dig, если мимо - через nslookup
             local panel_ip=$(dig +short A "$panel_input" | grep -E '^[0-9.]+$' | head -n 1)
             if [ -z "$panel_ip" ]; then
                 panel_ip=$(nslookup "$panel_input" 2>/dev/null | awk '/^Address: / { print $2 }' | head -n 1)
@@ -213,20 +294,16 @@ setup_ufw() {
             if [ -n "$panel_ip" ]; then
                 ufw allow from "$panel_ip" to any port $vpn_port proto tcp comment 'Panel_IP'
                 
-                # Создаем скрипт-автоапдейтер с новым методом резолвинга
                 cat > /usr/local/bin/remnanode_ufw_updater.sh <<EOF
 #!/bin/bash
 DOMAIN="$panel_input"
 PORT="$vpn_port"
 OLD_IP_FILE="/var/run/remnanode_panel_ip.txt"
 OLD_IP=\$(cat \$OLD_IP_FILE 2>/dev/null)
-
-# Резолвим строго IPv4
 NEW_IP=\$(dig +short A "\$DOMAIN" | grep -E '^[0-9.]+$' | head -n 1)
 if [ -z "\$NEW_IP" ]; then
     NEW_IP=\$(nslookup "\$DOMAIN" 2>/dev/null | awk '/^Address: / { print \$2 }' | head -n 1)
 fi
-
 if [ -n "\$NEW_IP" ] && [ "\$NEW_IP" != "\$OLD_IP" ]; then
     if [ -n "\$OLD_IP" ]; then
         ufw delete allow from \$OLD_IP to any port \$PORT proto tcp 2>/dev/null
@@ -239,7 +316,6 @@ EOF
                 chmod +x /usr/local/bin/remnanode_ufw_updater.sh
                 echo "$panel_ip" > /var/run/remnanode_panel_ip.txt
                 
-                # Добавляем в cron (каждые 6 часов)
                 crontab -l 2>/dev/null | grep -v "/usr/local/bin/remnanode_ufw_updater.sh" > /tmp/cron_temp
                 echo "0 */6 * * * /usr/local/bin/remnanode_ufw_updater.sh >/dev/null 2>&1" >> /tmp/cron_temp
                 crontab /tmp/cron_temp
@@ -249,15 +325,11 @@ EOF
         fi
     fi
 
-    # Блокировка спам-портов (исходящие)
     for port in 25 465 587 2525 24 387; do
         ufw deny out to any port $port proto tcp comment 'Block_Spam'
     done
-    
-    # Блокировка SIP
     ufw deny out to any port 5060 proto udp comment 'Block_SIP'
 
-    # Блокировка вредоносных/телеметрических IP
     local bad_ips=("34.209.195.255" "3.229.117.57" "52.16.171.153" "3.238.30.69" "34.16.47.102" "44.244.22.128" "3.250.92.156" "3.222.192.211")
     for ip in "${bad_ips[@]}"; do
         ufw deny out from any to $ip comment 'Block_Malicious_IP'
@@ -276,30 +348,6 @@ setup_traffic_guard() {
       -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list \
       -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list \
       --enable-logging
-}
-
-setup_crowdsec() {
-    curl -s https://install.crowdsec.net | bash
-    apt-get install -yq crowdsec crowdsec-firewall-bouncer-iptables
-    systemctl enable crowdsec
-    systemctl start crowdsec
-}
-
-setup_fail2ban() {
-    local ssh_port=$1
-    apt-get install fail2ban -y
-    cat > /etc/fail2ban/jail.local <<EOL
-[sshd]
-enabled   = true
-port      = $ssh_port
-maxretry  = 5
-findtime  = 1h
-bantime   = 1d
-ignoreip  = 127.0.0.1/8
-banaction = ufw
-EOL
-    systemctl restart fail2ban
-    systemctl enable fail2ban
 }
 
 setup_geoblock() {
@@ -321,23 +369,32 @@ setup_geoblock() {
     iptables -I INPUT -m set --match-set geo_block src -j DROP
 }
 
-setup_network() {
-    sed -i '/disable_ipv6/d' /etc/sysctl.conf
-    sed -i '/default_qdisc/d' /etc/sysctl.conf
-    sed -i '/tcp_congestion_control/d' /etc/sysctl.conf
+setup_fail2ban() {
+    local ssh_port=$1
+    apt-get install fail2ban -y
+    cat > /etc/fail2ban/jail.local <<EOL
+[sshd]
+enabled   = true
+port      = $ssh_port
+maxretry  = 5
+findtime  = 1h
+bantime   = 1d
+ignoreip  = 127.0.0.1/8
+banaction = ufw
+EOL
+    systemctl restart fail2ban
+    systemctl enable fail2ban
+}
 
-    cat >> /etc/sysctl.conf << EOF
-net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.lo.disable_ipv6 = 1
-net.core.default_qdisc = cake
-net.ipv4.tcp_congestion_control = bbr
-EOF
-    sysctl -p
+setup_crowdsec() {
+    curl -s https://install.crowdsec.net | bash
+    apt-get install -yq crowdsec crowdsec-firewall-bouncer-iptables
+    systemctl enable crowdsec
+    systemctl start crowdsec
 }
 
 # ==========================================
-# Главное меню
+# Главное меню Цикл
 # ==========================================
 while true; do
     clear
@@ -354,34 +411,45 @@ while true; do
     echo "$M_OPT_6"
     echo "$M_OPT_7"
     echo "$M_OPT_8"
+    echo "$M_OPT_9"
     echo "$M_OPT_0"
     echo -e "${BLUE}${BOLD}====================================================${NC}"
-    read -p "${M_CHOOSE} [0-8]: " choice
+    read -p "${M_CHOOSE} [0-9]: " choice
     
     case $choice in
         1)
+            clear
+            echo -e "${RED}${BOLD}${W_XAN_TITLE}${NC}"
+            echo -e "${YELLOW}${W_XAN_TEXT}${NC}"
+            read -p "> " XAN_CONFIRM
+            if [[ "$XAN_CONFIRM" == "y" || "$XAN_CONFIRM" == "Y" || "$XAN_CONFIRM" == "н" || "$XAN_CONFIRM" == "Н" ]]; then
+                run_with_loader "setup_xanmod_bbr3"
+                if [ $? -eq 0 ]; then
+                    echo -e "\n${RED}${BOLD}${W_XAN_REBOOT}${NC}"
+                    read -p "${S_ENTER}"
+                fi
+            fi
+            ;;
+        2)
+            run_with_loader "setup_network"
+            ;;
+        3)
             echo -n -e "${YELLOW}${P_SSH}${NC}"
             read SSH_PORT
             if [ -z "$SSH_PORT" ]; then SSH_PORT=22; fi
-            
             echo -n -e "${YELLOW}${P_VPN}${NC}"
             read VPN_PORT
-            
             echo -n -e "${YELLOW}${P_PANEL}${NC}"
             read PANEL_IP
-            
             run_with_loader "setup_ufw $SSH_PORT $VPN_PORT '$PANEL_IP'"
             ;;
-        2)
+        4)
             echo -n -e "${RED}${BOLD}${P_TG_SSH}${NC}"
             read TG_SSH_PORT
             if [ -z "$TG_SSH_PORT" ]; then TG_SSH_PORT=22; fi
             run_with_loader "setup_traffic_guard $TG_SSH_PORT"
             ;;
-        3)
-            run_with_loader "setup_crowdsec"
-            ;;
-        4)
+        5)
             echo -e "\n${BOLD}Available countries / Доступные страны:${NC}"
             for i in "${!COUNTRY_CODES[@]}"; do
                 num=$((i+1))
@@ -391,7 +459,6 @@ while true; do
                     echo -e "  ${BOLD}${num})${NC} ${COUNTRY_CODES[$i]} - ${COUNTRY_EN[$i]}"
                 fi
             done
-            
             echo -e "${YELLOW}${P_GEO_INFO}${NC}"
             read GEO_CHOICE
 
@@ -414,10 +481,16 @@ while true; do
                 sleep 1
             fi
             ;;
-        5)
-            run_with_loader "setup_network"
-            ;;
         6)
+            echo -n -e "${YELLOW}${P_SSH}${NC}"
+            read F2B_SSH_PORT
+            if [ -z "$F2B_SSH_PORT" ]; then F2B_SSH_PORT=22; fi
+            run_with_loader "setup_fail2ban $F2B_SSH_PORT"
+            ;;
+        7)
+            run_with_loader "setup_crowdsec"
+            ;;
+        8)
             run_with_loader "speedtest-cli --simple"
             if [ $? -eq 0 ]; then
                 echo -e "\n${BLUE}--- ${S_SPEED} ---${NC}"
@@ -426,17 +499,11 @@ while true; do
                 read -p "${S_ENTER}"
             fi
             ;;
-        7)
+        9)
             echo -e "\n${BLUE}--- ${S_GEO_CHECK} ---${NC}"
             bash <(wget -qO- https://ipregion.vrnt.xyz)
             echo -e "${BLUE}----------------------------${NC}"
             read -p "${S_ENTER}"
-            ;;
-        8)
-            echo -n -e "${YELLOW}${P_SSH}${NC}"
-            read F2B_SSH_PORT
-            if [ -z "$F2B_SSH_PORT" ]; then F2B_SSH_PORT=22; fi
-            run_with_loader "setup_fail2ban $F2B_SSH_PORT"
             ;;
         0)
             exit 0
