@@ -1,8 +1,20 @@
 #!/bin/bash
 
 # ==============================================================================
-# Remnanode Interactive Protection & Tuning Script (Menu Edition v8 - Anti-Conflict)
+# Remnanode Interactive Protection & Tuning Script (Menu Edition v9 - Bulletproof)
 # ==============================================================================
+
+# ПРИНУДИТЕЛЬНЫЙ ЗАХВАТ ТЕРМИНАЛА (Защита от бага при curl | bash)
+if [ ! -t 0 ]; then
+    exec < /dev/tty
+fi
+
+# ПРОТИВОАВАРИЙНАЯ ПРОВЕРКА ОБОЛОЧКИ
+if [ -z "$BASH_VERSION" ]; then
+    echo "ОШИБКА: Скрипт необходимо запускать через bash, а не sh!"
+    echo "Используйте: bash script.sh (или ./script.sh)"
+    exit 1
+fi
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -33,14 +45,18 @@ echo -e "${BLUE}${BOLD}====================================================${NC}
 echo -e "1) English"
 echo -e "2) Русский"
 echo -n -e "${YELLOW}Select language / Выберите язык [1/2]: ${NC}"
-read LANG_CHOICE
+
+# Предохранитель от мерцания при мертвом вводе
+if ! read LANG_CHOICE; then
+    echo -e "\n${RED}Ошибка ввода. Выход...${NC}"
+    exit 1
+fi
 
 if [[ "$LANG_CHOICE" == "2" ]]; then
     M_TITLE="МЕНЮ НАСТРОЙКИ ЗАЩИТЫ REMNANODE"
     M_IP="Ваш IP:"
     M_ASN="Провайдер:"
     
-    # Меню выстроено по строгой иерархии зависимостей
     M_OPT_1="1. [ШАГ 1] Продвинутый тюнинг (Ядро XanMod, BBRv3, Nftables) [⚠️ РЕБУТ]"
     M_OPT_2="2. [ШАГ 1.АЛЬТЕРНАТИВА] Базовый тюнинг сети (Без смены ядра: IPv6 OFF, BBR+CAKE)"
     M_OPT_3="3. [ШАГ 2] Настроить сетевой экран (UFW + Авто-Домен + Блок 25)"
@@ -414,7 +430,12 @@ while true; do
     echo "$M_OPT_9"
     echo "$M_OPT_0"
     echo -e "${BLUE}${BOLD}====================================================${NC}"
-    read -p "${M_CHOOSE} [0-9]: " choice
+    
+    # Предохранитель №2
+    if ! read -p "${M_CHOOSE} [0-9]: " choice; then
+        echo -e "\n${RED}Ошибка ввода или обрыв соединения. Выход...${NC}"
+        exit 1
+    fi
     
     case $choice in
         1)
