@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # ==============================================================================
-# Remnanode Interactive Protection & Tuning Script (Menu Edition v9 - Bulletproof)
+# Remnanode Interactive Protection & Tuning Script (Menu Edition v10 - Final)
+# Supports: Debian 11/12/13, Ubuntu 22.04/24.04
 # ==============================================================================
 
 # ПРИНУДИТЕЛЬНЫЙ ЗАХВАТ ТЕРМИНАЛА (Защита от бага при curl | bash)
@@ -46,7 +47,6 @@ echo -e "1) English"
 echo -e "2) Русский"
 echo -n -e "${YELLOW}Select language / Выберите язык [1/2]: ${NC}"
 
-# Предохранитель от мерцания при мертвом вводе
 if ! read LANG_CHOICE; then
     echo -e "\n${RED}Ошибка ввода. Выход...${NC}"
     exit 1
@@ -77,7 +77,7 @@ if [[ "$LANG_CHOICE" == "2" ]]; then
     P_GEO_SKIP="Страны не выбраны, пропускаем."
     
     W_XAN_TITLE="⚠️ ВНИМАНИЕ / WARNING ⚠️"
-    W_XAN_TEXT="Эта операция заменит стандартное ядро Linux на кастомное ядро XanMod (с поддержкой BBRv3), перенастроит sysctl и развернет правила nftables (MSS Clamping).\nВАЖНО: Выполнение этого шага сбросит (flush) текущие правила файрвола, поэтому его делают ПЕРВЫМ.\n\nВы уверены, что хотите продолжить? [y/n]: "
+    W_XAN_TEXT="Эта operation заменит стандартное ядро Linux на кастомное ядро XanMod (с поддержкой BBRv3), перенастроит sysctl и развернет правила nftables (MSS Clamping).\nВАЖНО: Выполнение этого шага сбросит (flush) текущие правила файрвола, поэтому его делают ПЕРВЫМ.\n\nВы уверены, что хотите продолжить? [y/n]: "
     W_XAN_REBOOT="⚠️ Скрипт отработал. Для активации нового ядра XanMod и BBRv3 ОБЯЗАТЕЛЬНО перезагрузите сервер командой: sudo reboot"
     
     S_SPIN="Выполнение задачи"
@@ -139,43 +139,43 @@ spin_david_star() {
     
     while kill -0 $pid 2>/dev/null; do
         tput cuu 7
-        echo -e "${BLUE}       /\\       ${NC}"
-        echo -e "${BLUE}    __/  \\__    ${NC}"
-        echo -e "${BLUE}    \\  |   /    ${NC}"
-        echo -e "${BLUE}    /_ |  _\\    ${NC}"
-        echo -e "${BLUE}      \\  /      ${NC}"
-        echo -e "${BLUE}       \\/       ${NC}"
+        echo -e "${BLUE}        /\\        ${NC}"
+        echo -e "${BLUE}     __/  \\__     ${NC}"
+        echo -e "${BLUE}     \\  |   /     ${NC}"
+        echo -e "${BLUE}     /_ |  _\\     ${NC}"
+        echo -e "${BLUE}       \\  /       ${NC}"
+        echo -e "${BLUE}        \\/        ${NC}"
         echo -e "${YELLOW} ${S_SPIN}...   ${NC}"
         sleep $delay
         
         tput cuu 7
-        echo -e "${BLUE}       /\\       ${NC}"
-        echo -e "${BLUE}    __/ / \\__   ${NC}"
-        echo -e "${BLUE}    \\    / /    ${NC}"
-        echo -e "${BLUE}    /_ /  _\\    ${NC}"
-        echo -e "${BLUE}      \\  /      ${NC}"
-        echo -e "${BLUE}       \\/       ${NC}"
+        echo -e "${BLUE}        /\\        ${NC}"
+        echo -e "${BLUE}     __/ / \\__    ${NC}"
+        echo -e "${BLUE}     \\    / /     ${NC}"
+        echo -e "${BLUE}     /_ /  _\\     ${NC}"
+        echo -e "${BLUE}       \\  /       ${NC}"
+        echo -e "${BLUE}        \\/        ${NC}"
         echo -e "${YELLOW} ${S_SPIN}..    ${NC}"
         sleep $delay
         
         tput cuu 7
-        echo -e "${BLUE}       /\\       ${NC}"
-        echo -e "${BLUE}    __/   \\__   ${NC}"
-        echo -e "${BLUE}    \\ ---  /    ${NC}"
-        echo -e "${BLUE}    /_   _\\     ${NC}"
-        echo -e "${BLUE}      \\  /      ${NC}"
-        echo -e "${BLUE}       \\/       ${NC}"
+        echo -e "${BLUE}        /\\        ${NC}"
+        echo -e "${BLUE}     __/   \\__    ${NC}"
+        echo -e "${BLUE}     \\ ---  /     ${NC}"
+        echo -e "${BLUE}     /_   _\\      ${NC}"
+        echo -e "${BLUE}       \\  /       ${NC}"
+        echo -e "${BLUE}        \\/        ${NC}"
         echo -e "${YELLOW} ${S_SPIN}.     ${NC}"
         sleep $delay
         
         tput cuu 7
-        echo -e "${BLUE}       /\\       ${NC}"
-        echo -e "${BLUE}    __\\   \\__   ${NC}"
-        echo -e "${BLUE}    \\  \\   /    ${NC}"
-        echo -e "${BLUE}    /_  \\ _\\    ${NC}"
-        echo -e "${BLUE}      \\  /      ${NC}"
-        echo -e "${BLUE}       \\/       ${NC}"
-        echo -e "${YELLOW} ${S_SPIN}      ${NC}"
+        echo -e "${BLUE}        /\\        ${NC}"
+        echo -e "${BLUE}     __\\   \\__    ${NC}"
+        echo -e "${BLUE}     \\  \\   /     ${NC}"
+        echo -e "${BLUE}     /_  \\ _\\     ${NC}"
+        echo -e "${BLUE}       \\  /       ${NC}"
+        echo -e "${BLUE}        \\/        ${NC}"
+        echo -e "${YELLOW} ${S_SPIN}       ${NC}"
         sleep $delay
     done
     tput cnorm
@@ -211,18 +211,16 @@ run_with_loader() {
 # ==========================================
 setup_xanmod_bbr3() {
     export DEBIAN_FRONTEND=noninteractive
-    
-    # 1. Репозиторий и ключи XanMod (Фикс пути на sources.list.d)
     apt-get update && apt-get install -y wget gpg ca-certificates lsb-release
     
     mkdir -p /etc/apt/sources.list.d
+    rm -f /etc/apt/sources.list.distrib.d/xanmod.list 2>/dev/null
+    
     wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
     echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://dl.xanmod.org/repository debian main' | tee /etc/apt/sources.list.d/xanmod.list
-    
     apt-get update
     apt-get install -yq linux-image-xanmod-edge linux-headers-xanmod-edge
 
-    # 2. Тюнинг Sysctl (BBRv3, TFO, Conntrack)
     local sysctl_conf="/etc/sysctl.d/99-network-optimization.conf"
     cat << 'EOF' > $sysctl_conf
 net.core.default_qdisc = fq
@@ -234,14 +232,12 @@ net.netfilter.nf_conntrack_tcp_timeout_time_wait = 60
 net.netfilter.nf_conntrack_tcp_timeout_close_wait = 30
 net.netfilter.nf_conntrack_tcp_timeout_fin_wait = 30
 EOF
-    modprobe nf_conntrack
+    modprobe nf_conntrack 2>/dev/null
     sysctl --system
 
-    # 3. Настройка Nftables (Умный сбор интерфейса)
     apt-get install -y nftables
     systemctl enable nftables
 
-    # Более надежный способ вытащить дефолтный интерфейс
     local interface=$(ip route | grep default | awk '{print $5}' | head -n1)
     if [ -z "$interface" ]; then
         interface=$(ip -o link show | awk -F': ' '{print $2}' | grep -v lo | head -n1)
@@ -251,28 +247,26 @@ EOF
     local nft_conf="/etc/nftables.conf"
     cat << EOF > $nft_conf
 #!/usr/sbin/nft -f
+
 flush ruleset
+
 table inet filter {
     counter tier_high { comment "VIP Traffic" }
     counter tier_normal { comment "Standard Traffic" }
+
     chain input {
         type filter hook input priority filter; policy accept;
-        tcp dport { 22, 80, 443 } ct timeout set "filter/tcp_established_high" counter name tier_high
+        tcp dport { 22, 80, 443 } ct state established ct timeout set 14400 counter name tier_high
         counter name tier_normal
     }
+
     chain forward {
         type filter hook forward priority filter; policy accept;
         oifname "$interface" tcp flags syn tcp option maxseg size set rt mtu
     }
+
     chain output {
         type filter hook output priority filter; policy accept;
-    }
-}
-table inet timeout_policy {
-    ct timeout tcp_established_high {
-        protocol tcp;
-        l4proto tcp;
-        state established = 14400;
     }
 }
 EOF
@@ -322,7 +316,7 @@ setup_ufw() {
                 ufw allow from "$panel_ip" to any port $vpn_port proto tcp comment 'Panel_IP'
                 
                 cat > /usr/local/bin/remnanode_ufw_updater.sh <<EOF
-#!/bin/bash
+#!/bash
 DOMAIN="$panel_input"
 PORT="$vpn_port"
 OLD_IP_FILE="/var/run/remnanode_panel_ip.txt"
@@ -442,7 +436,6 @@ while true; do
     echo "$M_OPT_0"
     echo -e "${BLUE}${BOLD}====================================================${NC}"
     
-    # Предохранитель №2
     if ! read -p "${M_CHOOSE} [0-9]: " choice; then
         echo -e "\n${RED}Ошибка ввода или обрыв соединения. Выход...${NC}"
         exit 1
